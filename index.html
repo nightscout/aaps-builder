@@ -9,7 +9,9 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://nightscout.github.io/aaps-builder/; style-src https://nightscout.github.io/aaps-builder/; img-src 'self' data:; connect-src https://nightscout.github.io/aaps-builder/ https://api.github.com https://oauth2.googleapis.com/token; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>AAPS Builder setup page</title>
-<link rel="stylesheet" href="style.css">
+<!-- ?v= : GitHub Pages lets browsers cache files for 10 minutes. Raise it with every change of
+     app.js or style.css, so a new page never runs with the old script. -->
+<link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 <main>
@@ -293,6 +295,6 @@
 
 </main>
 <script src="forge.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

@@ -126,6 +126,12 @@ reviewed build steps:
 Only a commit that stays reachable on `main` may be pinned: never squash, rebase or force-push it
 away. Users' stubs point at it for as long as they keep them.
 
+## Changing the setup page
+
+GitHub Pages lets browsers cache every file for 10 minutes. `index.html` loads `app.js?v=N` and
+`style.css?v=N`: raise `N` in the same commit as any change to `app.js` or `style.css`, otherwise a
+browser can run the new page with the old script.
+
 ## Testing the setup page
 
 Serve the folder locally (`python -m http.server`) with the `Content-Security-Policy` meta tag
@@ -179,7 +185,7 @@ files):
 ## Checksums (of the committed files, LF line endings)
 
 ```
-SHA-256(index.html)             = 312a8784c301e50d7a524ab028915d911f757c81ee3826bdcb6ff68b9c670687
+SHA-256(index.html)             = 3762e976aedfebeb05915c9b291e2580d093d5a532837e8ad7bfa12cd385a8dc
 SHA-256(app.js)                 = db12986c644ea237ed632ce0626d27b6b092b9004b3b008dfbc7a97170818e3d
 SHA-256(style.css)              = b056b1d3fb4b92656c4f57c72d0844c30c77797febd2bc8041d95ced3c7b3aed
 SHA-256(aaps-builder-build.yml) = 7f676bc4a748063b484c9898f3b54252102ef9d39d9860daaf49ebb475b924a1
