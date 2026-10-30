@@ -4,9 +4,10 @@
 // github.com/nightscout/AndroidAPS, with GitHub Actions.
 //
 // The keystore and passwords never leave this browser. The only requests are reading the workflow
-// file and asking GitHub's public API whether the typed username exists (only the name is sent).
+// file, asking GitHub's public API whether the typed username exists (only the name is sent), and,
+// in the optional Google Drive step, sending Google's one-time answer to Google's token endpoint.
 // The page's Content-Security-Policy (meta tag in index.html) allows only this site's
-// /aaps-builder/ folder and https://api.github.com.
+// /aaps-builder/ folder, https://api.github.com and https://oauth2.googleapis.com/token.
 //
 // Based on AAPS Builder by the AAPS Builder authors (github.com/dio99/aaps-builder), GNU Affero
 // General Public License v3.0 (AGPL-3.0). Modified for the AAPS documentation
@@ -310,12 +311,96 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
-  // ---------- step 4 / 7: copy secret names and value ----------
+  // ---------- step 7: Google Drive access (GDRIVE_OAUTH2) ----------
+  // The same Google OAuth client, scope and PKCE flow as the AAPS preparation page
+  // (github.com/nightscout/aaps-ci-preparation), so the build steps read the value the same way:
+  // base64(client_id|refresh_token). Google sends the browser to a loopback address where nothing
+  // listens: the tab shows an error, but its address holds the answer. The user copies that address
+  // here, and this page sends the code to Google's token endpoint, and nowhere else.
+  // The PKCE verifier stays in this tab, so the code is useless to anything else that sees it.
+  const GOOGLE_CLIENT_ID = '705061051276-5ssikkg2ag39l7hj9t63saq549n3s2n5.apps.googleusercontent.com';
+  const GOOGLE_REDIRECT = 'http://127.0.0.1:47913/aaps-builder';
+  const session = {
+    get: k => { try { return sessionStorage.getItem(k); } catch { return null; } },
+    set: (k, v) => { try { sessionStorage.setItem(k, v); } catch {} }
+  };
+  const randomHex = n => [...crypto.getRandomValues(new Uint8Array(n))].map(b => b.toString(16).padStart(2, '0')).join('');
+  const b64url = bytes => bytesToB64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  // The link is ready before the tap, so the browser opens it as a normal link and does not
+  // block it as a pop-up.
+  async function setGoogleLink(verifier, state) {
+    const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', utf8(verifier))));
+    const p = new URLSearchParams({
+      client_id: GOOGLE_CLIENT_ID, redirect_uri: GOOGLE_REDIRECT, response_type: 'code',
+      scope: 'https://www.googleapis.com/auth/drive.file', access_type: 'offline',
+      // consent: Google sends a refresh token only when the user is asked, also after an earlier grant
+      prompt: 'consent', code_challenge_method: 'S256', code_challenge: challenge, state
+    });
+    $('googleAuth').href = 'https://accounts.google.com/o/oauth2/v2/auth?' + p;
+  }
+  // A new attempt: new verifier and state
+  function newGoogleAttempt() {
+    const verifier = randomHex(32), state = randomHex(16);
+    session.set('gVerifier', verifier);
+    session.set('gState', state);
+    return setGoogleLink(verifier, state);
+  }
+  // Keep the attempt of this tab if the page is reloaded while the user is in the Google tab
+  if (session.get('gVerifier') && session.get('gState')) setGoogleLink(session.get('gVerifier'), session.get('gState'));
+  else newGoogleAttempt();
+
+  let gdriveValue = null;
+  $('googleGo').addEventListener('click', async () => {
+    const text = $('googleUrl').value.trim();
+    if (!text) return msg('googleMsg', t('gNoUrl'), 'err');
+    let params;
+    try { params = new URL(text).searchParams; } catch { return msg('googleMsg', t('gNoCode'), 'err'); }
+    if (params.get('error')) return msg('googleMsg', t('gDenied'), 'err');
+    const code = params.get('code');
+    if (!code) return msg('googleMsg', t('gNoCode'), 'err');
+    if (params.get('state') !== session.get('gState')) return msg('googleMsg', t('gOldUrl'), 'err');
+    $('googleGo').disabled = true;
+    msg('googleMsg', t('gWorking'), '');
+    try {
+      const r = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: GOOGLE_CLIENT_ID, code, code_verifier: session.get('gVerifier'),
+          grant_type: 'authorization_code', redirect_uri: GOOGLE_REDIRECT
+        })
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        msg('googleMsg', t('gFailed', { error: data.error || r.status }), 'err');
+        await newGoogleAttempt();
+        return;
+      }
+      if (!data.refresh_token) { msg('googleMsg', t('gNoRefresh'), 'err'); await newGoogleAttempt(); return; }
+      gdriveValue = bytesToB64(utf8(GOOGLE_CLIENT_ID + '|' + data.refresh_token));
+      $('gdrivePreview').textContent = gdriveValue.slice(0, 16) + '…';
+      $('gdriveReady').hidden = false;
+      $('googleUrl').value = '';
+      msg('googleMsg', t('gOk'), 'ok');
+      done(7);
+      await newGoogleAttempt();      // the code is used up; a new tap starts a new attempt
+    } catch (e) {
+      console.error(e);
+      msg('googleMsg', t('gFailed', { error: String(e) }), 'err');
+    } finally {
+      $('googleGo').disabled = false;
+    }
+  });
+
+  // ---------- step 4 / 7: copy secret names and values ----------
   document.querySelectorAll('[data-aapsb-copy]').forEach(b => b.addEventListener('click', async () => {
-    const fixed = { name: 'KEYSTORE_SET', gdrive: 'GDRIVE_OAUTH2' };
-    await copyText(fixed[b.dataset.aapsbCopy] ?? secretValue);
-    if (b.dataset.aapsbCopy === 'secret') msg('copyMsg', t('copied'), 'ok');
-    if (b.dataset.aapsbCopy === 'name') msg('copyMsg', t('copiedName'), 'ok');
+    const kind = b.dataset.aapsbCopy;
+    const values = { name: 'KEYSTORE_SET', gdrive: 'GDRIVE_OAUTH2', secret: secretValue, gdriveValue };
+    await copyText(values[kind]);
+    if (kind === 'secret') msg('copyMsg', t('copied'), 'ok');
+    if (kind === 'name') msg('copyMsg', t('copiedName'), 'ok');
+    if (kind === 'gdriveValue') msg('gdriveCopyMsg', t('gCopied'), 'ok');
     const label = b.textContent;
     b.textContent = t('copiedShort');
     setTimeout(() => { b.textContent = label; }, 2000);

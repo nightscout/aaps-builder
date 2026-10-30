@@ -57,8 +57,16 @@ there must come from an approved AAPS source:
 - **Setup page**: every file comes from this repository, served from
   `https://nightscout.github.io/aaps-builder/`. The Content-Security-Policy (meta tag in
   `index.html`) allows scripts, styles and requests only from that folder, plus
-  `https://api.github.com` to check that the typed username exists: no CDN, no other third-party
-  request. The only other request is reading `aaps-builder-build.yml` from the same folder (step
+  `https://api.github.com` to check that the typed username exists and
+  `https://oauth2.googleapis.com/token` for the optional Google Drive step: no CDN, no other
+  third-party request.
+- **Google Drive step**: the same Google OAuth client, `drive.file` scope and PKCE flow as the AAPS
+  preparation page (`nightscout/aaps-ci-preparation`), so `GDRIVE_OAUTH2` keeps its format
+  (`base64(client_id|refresh_token)`). Google sends the browser to the loopback address
+  `http://127.0.0.1:47913/aaps-builder`, where nothing listens: the tab shows an error and the user
+  copies its address back into the page. The PKCE verifier and `state` stay in the page's tab, so
+  the code is useless to anything else that sees it. `prompt=consent` makes Google send a refresh
+  token also when the user granted access before. The only other request is reading `aaps-builder-build.yml` from the same folder (step
   "Add the build workflow"). The page puts its text into the link to GitHub's new-file page
   (`/new/main?filename=...&value=...`), so the user only confirms the commit.
 - **Repository creation**: an **empty** private repository (`github.com/new` with `name`,
@@ -161,7 +169,9 @@ files):
    `KEYSTORE_SET`.
 8. Workflow version 7: build steps, stub and setup page moved from openaps/AndroidAPSdocs to this
    repository; error messages link to this setup page.
-9. New keys created on the setup page use the alias `key0` (upstream: `aaps`), the same as the
+9. Setup page: step 7 gets `GDRIVE_OAUTH2` from Google itself (no preparation page, no File
+   Manager Plus); step 1 warns about an existing repository, a fork, and the remembered name.
+10. New keys created on the setup page use the alias `key0` (upstream: `aaps`), the same as the
    preparation page of the older browser build and Android Studio's default. Keys created before
    this change keep the alias `aaps`; the alias travels inside `KEYSTORE_SET`, so builds work with
    either.
@@ -169,8 +179,8 @@ files):
 ## Checksums (of the committed files, LF line endings)
 
 ```
-SHA-256(index.html)             = c4254a24198dd5fd691e620e1f6b1da39177bfb9afe2fc4ed59ae8ada80aa092
-SHA-256(app.js)                 = 1ce240ee2f9763dc3edcc46bc86e3fbaedebdf6a63ae6f37ec5d9d654c11472e
+SHA-256(index.html)             = 312a8784c301e50d7a524ab028915d911f757c81ee3826bdcb6ff68b9c670687
+SHA-256(app.js)                 = db12986c644ea237ed632ce0626d27b6b092b9004b3b008dfbc7a97170818e3d
 SHA-256(style.css)              = b056b1d3fb4b92656c4f57c72d0844c30c77797febd2bc8041d95ced3c7b3aed
 SHA-256(aaps-builder-build.yml) = 7f676bc4a748063b484c9898f3b54252102ef9d39d9860daaf49ebb475b924a1
 SHA-256(forge.min.js)           = dc67fd132427ad96c9666c844b39565413c40ddb1f2d063c53512fbf6d387dfd

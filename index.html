@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <!-- The page can't send the user's keystore, passwords or APK to another site: scripts and requests
-     only from this folder, plus GitHub's public API to check the typed username. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://nightscout.github.io/aaps-builder/; style-src https://nightscout.github.io/aaps-builder/; img-src 'self' data:; connect-src https://nightscout.github.io/aaps-builder/ https://api.github.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+     only from this folder, plus GitHub's public API to check the typed username and Google's token
+     endpoint for the Google Drive step. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://nightscout.github.io/aaps-builder/; style-src https://nightscout.github.io/aaps-builder/; img-src 'self' data:; connect-src https://nightscout.github.io/aaps-builder/ https://api.github.com https://oauth2.googleapis.com/token; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <title>AAPS Builder setup page</title>
 <link rel="stylesheet" href="style.css">
@@ -37,7 +38,15 @@
 
 <p>Keep the suggestion. Already created your repository with another name? Type that exact name here.</p>
 
+<div class="aapsb-note">
+<p><b>Already have an AAPS Builder repository</b> (from an earlier version of this page or from the old template)? Do not create a new one: type its exact name here, skip the button below, and update the workflow in step 2 ("Updating the workflow, or the text area is empty?"). Your secrets stay as they are.</p>
+<p>If you want a new repository anyway, choose a name you don't have yet, for example <code>my-aaps-2</code>, and use the same keystore in step 3.</p>
+<p>Do not type the name of your fork of AndroidAPS: a fork is public, and it already builds with its own AAPS CI workflow.</p>
+</div>
+
 <p>Your repository: <code class="aapsb-repoUrl"></code></p>
+
+<p>Check this name before you use the buttons below: the page remembers the name from your last visit.</p>
 
 <p>Already created an empty private repository yourself? Do not tap the button below: type its exact name above and go to <a href="#aaps-builder-setup-step2">step 2</a>.</p>
 
@@ -207,16 +216,33 @@
 <section class="aapsb-step" id="aaps-builder-setup-step7">
 <h2>Step 7 – Optional: get the app in Google Drive</h2>
 
-<p>Want the APK to show up in your Google Drive (kept forever)? Add one more secret.</p>
+<p>Want the APK to show up in your Google Drive (kept forever)? Add one more secret, GDRIVE_OAUTH2. This page gets it from Google for you. AAPS can then only see and change the files it creates in your Google Drive, nothing else.</p>
 
 <ol>
-  <li>Get a GDRIVE_OAUTH2 value as explained in the AAPS documentation (it uses the official AAPS preparation page, on a computer): <a href="https://androidaps.readthedocs.io/en/latest/SettingUpAaps/BrowserBuildAapsBuilder.html#aaps-builder-google-drive" target="_blank" rel="noopener">Save the builds in Google Drive</a>.</li>
+  <li><a class="aapsb-btn" id="aapsb-googleAuth" target="_blank" rel="noopener">Connect Google Drive</a>
+    <p>Google opens in a new tab. Choose your Google account and allow AAPS to see and change its own files. If Google says the app is not verified, tap "Advanced", then "Go to …".</p></li>
+  <li>Then the new tab shows an error like <b>"This site can't be reached"</b> or <b>"127.0.0.1 refused to connect"</b>. <b>This is expected.</b> Google's answer is in the address of that tab.
+    <p>Tap the address bar of that tab, select all of the address and copy it. It starts with <code>http://127.0.0.1:47913/</code>. Come back to this page within a few minutes: the answer is only valid for a short time.</p></li>
+  <li><label class="aapsb-label" for="aapsb-googleUrl">Paste the copied address here</label>
+    <input class="aapsb-input" type="url" id="aapsb-googleUrl" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:47913/aaps-builder?…">
+    <button class="aapsb-btn" type="button" id="aapsb-googleGo">Get GDRIVE_OAUTH2</button> <span class="aapsb-msg" id="aapsb-googleMsg"></span></li>
+</ol>
+
+<div id="aapsb-gdriveReady" hidden>
+<ol start="4">
   <li><a class="aapsb-btn aapsb-secondary" id="aapsb-openSecrets2" target="_blank" rel="noopener">Open the secrets page</a>
     <p>Opens: <code class="aapsb-repoUrl"></code></p>
     <p>Getting "Page not found" (404)? First check that you are logged in to github.com in this browser: GitHub shows 404 for private repositories when you are not logged in. Otherwise your username or repository name in step 1 does not match your repository: check them on github.com and type them in step 1.</p></li>
   <li>Tap "Copy name", then paste it into the small "Name" field: <code>GDRIVE_OAUTH2</code> <button class="aapsb-btn aapsb-secondary" type="button" data-aapsb-copy="gdrive">Copy name</button></li>
-  <li>Paste your GDRIVE_OAUTH2 value into the big "Secret" box, then tap "Add secret".</li>
+  <li>Tap "Copy secret", then paste the code into the big "Secret" box: <code id="aapsb-gdrivePreview"></code> <button class="aapsb-btn" type="button" data-aapsb-copy="gdriveValue">Copy secret</button> <span class="aapsb-msg" id="aapsb-gdriveCopyMsg"></span></li>
+  <li>Tap "Add secret".</li>
 </ol>
+</div>
+
+<details>
+<summary>Already have a GDRIVE_OAUTH2 value?</summary>
+<p>A value from the AAPS preparation page of the other browser build works too: open the secrets page, add the name <code>GDRIVE_OAUTH2</code> and paste your value. See <a href="https://androidaps.readthedocs.io/en/latest/SettingUpAaps/BrowserBuildAapsBuilder.html#aaps-builder-google-drive" target="_blank" rel="noopener">Save the builds in Google Drive</a>.</p>
+</details>
 
 <p>Next build, the APKs are also saved in Google Drive in the folder AAPS/&lt;version&gt;.</p>
 
@@ -224,7 +250,7 @@
 </section>
 
 <footer>
-<p>Everything on this page runs in your browser. Your key and passwords are never sent anywhere except where you paste them yourself. Only your GitHub username is sent to GitHub, to check that it exists.</p>
+<p>Everything on this page runs in your browser. Your key and passwords are never sent anywhere except where you paste them yourself. Only your GitHub username is sent to GitHub, to check that it exists. In step 7, the Google answer is sent only to Google, to get GDRIVE_OAUTH2.</p>
 <p>Page and build steps: <a href="https://github.com/nightscout/aaps-builder" target="_blank" rel="noopener">github.com/nightscout/aaps-builder</a>, based on AAPS Builder by the AAPS Builder authors (AGPL-3.0).</p>
 </footer>
 
@@ -253,6 +279,15 @@
   <li><span data-aapsb-msg="errMatch">The passwords do not match.</span></li>
   <li><span data-aapsb-msg="working">Creating key…</span></li>
   <li><span data-aapsb-msg="okNew">Key created. Download the backup below, then continue with step 4.</span></li>
+  <li><span data-aapsb-msg="gNoUrl">Paste the whole address of the Google tab first.</span></li>
+  <li><span data-aapsb-msg="gNoCode">This address has no answer from Google. Copy the whole address of the tab that shows the error, starting with http://127.0.0.1:47913/</span></li>
+  <li><span data-aapsb-msg="gDenied">Google access was not allowed. Tap "Connect Google Drive" again and allow access.</span></li>
+  <li><span data-aapsb-msg="gOldUrl">This address belongs to an older attempt. Tap "Connect Google Drive" again and use the new address.</span></li>
+  <li><span data-aapsb-msg="gWorking">Asking Google…</span></li>
+  <li><span data-aapsb-msg="gFailed">Google did not accept it ({error}). The answer is valid only for a few minutes and only once: tap "Connect Google Drive" again.</span></li>
+  <li><span data-aapsb-msg="gNoRefresh">Google sent no long-term access. Tap "Connect Google Drive" again.</span></li>
+  <li><span data-aapsb-msg="gOk">GDRIVE_OAUTH2 is ready. Add it as a secret below.</span></li>
+  <li><span data-aapsb-msg="gCopied">Code copied: paste it in the big "Secret" box, then tap "Add secret".</span></li>
 </ul>
 </div>
 
