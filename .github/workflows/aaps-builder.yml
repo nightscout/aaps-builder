@@ -1,57 +1,59 @@
-name: Build AAPS
-run-name: Build AAPS ${{ inputs.version }} (${{ inputs.variant }})
+# AAPS Builder build steps (reusable workflow), version 7
+#
+# Builds the AAPS app from the official AndroidAPS source (github.com/nightscout/AndroidAPS),
+# signed with the user's own key (secret KEYSTORE_SET). It is not run in this repository: the
+# short build.yml in each user's private repository calls it, pinned to one commit of this file.
+# The user's build.yml is served by the setup page: aaps-builder-build.yml in this repository.
+#
+# Setup page: https://nightscout.github.io/aaps-builder/
+# Docs: https://androidaps.readthedocs.io/en/dev/SettingUpAaps/BrowserBuildAapsBuilder.html
+# The only code this file downloads is the AAPS source from nightscout/AndroidAPS and GitHub's own
+# actions (actions/setup-java, actions/upload-artifact), each pinned to one commit (tag in the
+# comment). The runner image is pinned too (ubuntu-24.04), so nothing changes under a build
+# without a reviewed edit of this file.
+#
+# Based on AAPS Builder by the AAPS Builder authors (github.com/dio99/aaps-builder), AGPL-3.0.
+# Modified for the AAPS documentation (github.com/openaps/AndroidAPSdocs), now maintained in
+# github.com/nightscout/aaps-builder.
+#
+# A build runs only when the user starts it (Actions -> Build AAPS -> Run workflow in their
+# repository) and chooses the version and variant. There are no scheduled or automatic builds.
 
-# ============================================================================================
-#  HOW TO UPDATE YOUR COPY: copy ALL of this file (copy icon at the top right of this page)
-#  and paste it over your own .github/workflows/build.yml.
-#  This file:         https://github.com/nightscout/aaps-builder/blob/main/.github/workflows/build.yml
-#  Plain text (phone): https://raw.githubusercontent.com/nightscout/aaps-builder/main/.github/workflows/build.yml
-#  Step-by-step guide: https://github.com/nightscout/aaps-builder#-updating-your-copy
-#
-#  Version 2: automatic weekly builds were removed at the request of the AAPS developers.
-#  You always start a build yourself: Actions -> Build AAPS -> Run workflow.
-# ============================================================================================
-#
-# Everything this repository does is in this file. Nothing is run from anywhere else.
+name: AAPS Builder
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
       version:
         description: 'AAPS version ("latest" = newest release)'
         required: true
-        default: 'latest'
         type: string
       variant:
         description: 'Build variant'
         required: true
-        default: 'fullRelease'
-        type: choice
-        options:
-          - fullRelease
-          - aapsclientRelease
-          - aapsclient2Release
-          - pumpcontrolRelease
-          - fullDebug
+        type: string
+    secrets:
+      KEYSTORE_SET:
+        required: false
+      GDRIVE_OAUTH2:
+        required: false
 
 permissions:
   contents: read
 
 env:
-  # Version of this file. Bump it (and the VERSION file) when publishing a new aaps-builder release.
-  BUILDER_VERSION: 2
-  BUILDER_REPO: nightscout/aaps-builder
-  IN_VERSION: ${{ inputs.version || 'latest' }}
-  IN_VARIANT: ${{ inputs.variant || 'fullRelease' }}
+  DOCS_PAGE: https://androidaps.readthedocs.io/en/dev/SettingUpAaps/BrowserBuildAapsBuilder.html
+  SETUP_PAGE: https://nightscout.github.io/aaps-builder/
+  IN_VERSION: ${{ inputs.version }}
+  IN_VARIANT: ${{ inputs.variant }}
 
 jobs:
   check:
     name: Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     outputs:
-      build: ${{ steps.check.outputs.build }}
       version: ${{ steps.check.outputs.version }}
       private: ${{ steps.check.outputs.private }}
     env:
@@ -67,14 +69,12 @@ jobs:
           api() { curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -w '\n%{http_code}' "https://api.github.com/repos/$GITHUB_REPOSITORY$1"; }
 
           REPO_JSON=$(api "" | head -n -1)
-          IS_TEMPLATE=$(echo "$REPO_JSON" | jq -r .is_template)
           PRIVATE=$(echo "$REPO_JSON" | jq -r .private)
           echo "private=$PRIVATE" >> "$GITHUB_OUTPUT"
-          [ "$IS_TEMPLATE" = true ] && stop "This is the template. Create your own private copy with the setup page: https://${BUILDER_REPO%%/*}.github.io/${BUILDER_REPO#*/}/"
           if [ "$PRIVATE" != true ] && [ "$HAS_GDRIVE" != true ]; then
             stop "This repository is PUBLIC, anyone could download your APK. Make it private: Settings -> General -> Danger Zone -> Change visibility -> Private"
           fi
-          [ "$HAS_KEYSTORE" = true ] || stop "Secret KEYSTORE_SET is missing. Create it with the setup page and add it under Settings -> Secrets and variables -> Actions."
+          [ "$HAS_KEYSTORE" = true ] || stop "Secret KEYSTORE_SET is missing. Create it with the AAPS Builder setup page ($SETUP_PAGE) and add it under Settings -> Secrets and variables -> Actions."
 
           VERSION="$IN_VERSION"
           VERSION="${VERSION// /}"
@@ -86,15 +86,19 @@ jobs:
           fi
           git ls-remote --exit-code --tags "$UPSTREAM" "refs/tags/$VERSION" > /dev/null \
             || stop "Version $VERSION does not exist in nightscout/AndroidAPS."
+          case "$IN_VARIANT" in
+            fullRelease|aapsclientRelease|aapsclient2Release|aapsclient3Release|pumpcontrolRelease|fullDebug) ;;
+            *) stop "Variant $IN_VARIANT is not supported. Replace .github/workflows/build.yml with the newest version from the setup page ($SETUP_PAGE)." ;;
+          esac
+          case "$IN_VARIANT:$VERSION" in
+            aapsclient3*:[0-3].*) stop "AAPSClient3 exists only from AAPS 4.0. Choose version 4.0 or later, or another variant." ;;
+          esac
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-          echo "build=true" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build AAPS ${{ needs.check.outputs.version }}
     needs: check
-    if: ${{ needs.check.outputs.build == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     permissions:
       contents: read
@@ -107,9 +111,9 @@ jobs:
         env:
           KEYSTORE_SET: ${{ secrets.KEYSTORE_SET }}
         run: |
-          # Note: GitHub hides the secret's value in the log as ***, so these messages
-          # must not contain text that could be the value itself (like the secret's name).
-          HINT="Open Settings -> Secrets and variables -> Actions, edit the secret and paste the LONG code from 'Copy long code' on the setup page (step 3)."
+          # GitHub hides the secret's value in the log as ***, so these messages must not contain
+          # text that could be the value itself (like the secret's name, if it was pasted as value).
+          HINT="Redo step 4 of the AAPS Builder setup page: open Settings -> Secrets and variables -> Actions, edit the secret and paste the long code from 'Copy secret' in the big Secret box. Help: $DOCS_PAGE"
           VALUE=$(printf '%s' "$KEYSTORE_SET" | tr -d ' \r\n')
           if [ ${#VALUE} -lt 200 ]; then
             echo "::error::The secret is too short (${#VALUE} characters). It must be a very long code, not the secret's name. $HINT"
@@ -140,7 +144,7 @@ jobs:
           if ! jarsigner -keystore "$RUNNER_TEMP/keystore/keystore.jks" \
               -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
               dummy.jar "$KEY_ALIAS" > jarsigner.log 2>&1; then
-            echo "::error::Keystore, password or alias is wrong. Create KEYSTORE_SET again with the setup page."
+            echo "::error::Keystore, password or alias is wrong. Create KEYSTORE_SET again with the setup page ($SETUP_PAGE)."
             cat jarsigner.log
             exit 1
           fi
@@ -173,7 +177,7 @@ jobs:
         run: git clone --depth 1 --branch "$VERSION" "$UPSTREAM" aaps
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: temurin
@@ -222,7 +226,7 @@ jobs:
       - name: Upload phone APK (download it from this page)
         id: phone
         if: ${{ needs.check.outputs.private == 'true' || env.HAS_GDRIVE != 'true' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: out/aaps-${{ env.VERSION }}${{ env.SUFFIX }}.apk
           archive: false
@@ -231,7 +235,7 @@ jobs:
       - name: Upload watch APK
         id: wear
         if: ${{ needs.check.outputs.private == 'true' || env.HAS_GDRIVE != 'true' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           path: out/aaps-wear-${{ env.VERSION }}${{ env.SUFFIX }}.apk
           archive: false
@@ -249,10 +253,10 @@ jobs:
             echo "> 1. AAPS → Maintenance → **Export settings**"
             echo "> 2. Copy the exported file **off the phone** (Google Drive, Dropbox…)"
             echo ">"
-            echo "> [How to export](https://androidaps.readthedocs.io/en/latest/Maintenance/ExportImportSettings.html) · [AAPS FAQ: backups](https://androidaps.readthedocs.io/en/latest/UsefulLinks/FAQ.html#how-to-organize-my-backups)"
+            echo "> [How to export settings](https://androidaps.readthedocs.io/en/latest/Maintenance/ExportImportSettings.html) · [AAPS FAQ: backups](https://androidaps.readthedocs.io/en/latest/UsefulLinks/FAQ.html#how-to-organize-my-backups)"
             echo
             echo "## 📱 [Download AAPS $VERSION]($PHONE_URL)"
-            echo "Open this page on your phone in the web browser (not the GitHub app), tap the link, then tap the downloaded file to install."
+            echo "Open this page on your phone, tap the link, then tap the downloaded file to install."
             echo
             echo "⌚ [Watch: aaps-wear-$VERSION$SUFFIX.apk]($WEAR_URL) (only for a smartwatch)"
             echo
@@ -274,7 +278,7 @@ jobs:
             -d client_id="$CLIENT_ID" -d refresh_token="$REFRESH_TOKEN" \
             -d grant_type=refresh_token | jq -r .access_token)
           if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
-            echo "::error::Google Drive access has expired or was revoked (unused for 6 months or Google password changed). Redo step 6 on the setup page and update the GDRIVE_OAUTH2 secret."
+            echo "::error::Google Drive access has expired or was revoked (unused for 6 months or Google password changed). Redo the Google Drive step of the setup page and update the GDRIVE_OAUTH2 secret."
             exit 1
           fi
           echo "::add-mask::$TOKEN"
@@ -308,42 +312,3 @@ jobs:
             echo "✅ $NAME → Google Drive: AAPS/$VERSION"
           done
           echo "📁 APKs uploaded to Google Drive folder **AAPS/$VERSION**" >> "$GITHUB_STEP_SUMMARY"
-
-  # Tells you (with a GitHub issue, which also sends you an e-mail) when a newer version of
-  # aaps-builder exists. It only reads a version number; nothing is updated automatically.
-  builder-update:
-    name: Check for builder updates
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-    steps:
-      - name: Compare with the newest aaps-builder
-        run: |
-          LATEST=$(curl -sf "https://raw.githubusercontent.com/$BUILDER_REPO/main/VERSION" | tr -dc 0-9)
-          [ -n "$LATEST" ] || { echo "Could not read the newest version, skipping."; exit 0; }
-          if [ "$LATEST" -le "$BUILDER_VERSION" ]; then echo "✅ aaps-builder is up to date (version $BUILDER_VERSION)."; exit 0; fi
-          [ "$(gh api "repos/$GITHUB_REPOSITORY" -q .is_template)" = true ] && exit 0
-
-          echo "::warning::A newer version of aaps-builder is available (version $LATEST, you have $BUILDER_VERSION). See the issue in your repository."
-          TITLE="AAPS Builder update available (version $LATEST)"
-          if [ "$(gh issue list -R "$GITHUB_REPOSITORY" --state all --search "\"$TITLE\" in:title" --json number -q length)" != 0 ]; then
-            echo "Issue already exists."; exit 0
-          fi
-          EDIT="https://github.com/$GITHUB_REPOSITORY/edit/${GITHUB_REF_NAME}/.github/workflows/build.yml"
-          gh issue create -R "$GITHUB_REPOSITORY" --title "$TITLE" --body "$(cat <<BODY
-          A newer version of AAPS Builder is available. Please update: see "What changed" below for why.
-
-          **What changed:** https://github.com/$BUILDER_REPO/commits/main
-
-          **Step-by-step guide (also for phones):** https://github.com/$BUILDER_REPO#-updating-your-copy
-
-          **Update (2 min):**
-          1. Open the new file: https://github.com/$BUILDER_REPO/blob/main/.github/workflows/build.yml
-             Click the copy button (⧉ "Copy raw file").
-          2. Open your file: $EDIT
-          3. Select all (Ctrl+A), paste (Ctrl+V), click **Commit changes**.
-          4. Close this issue.
-          BODY
-          )" || echo "::warning::Could not create the issue (are issues turned off in this repository?)."
