@@ -4,9 +4,9 @@ run-name: Build AAPS ${{ inputs.version }} (${{ inputs.variant }})
 # ============================================================================================
 #  HOW TO UPDATE YOUR COPY: copy ALL of this file (copy icon at the top right of this page)
 #  and paste it over your own .github/workflows/build.yml.
-#  This file:         https://github.com/dio99/aaps-builder/blob/main/.github/workflows/build.yml
-#  Plain text (phone): https://raw.githubusercontent.com/dio99/aaps-builder/main/.github/workflows/build.yml
-#  Step-by-step guide: https://github.com/dio99/aaps-builder#-updating-your-copy
+#  This file:         https://github.com/nightscout/aaps-builder/blob/main/.github/workflows/build.yml
+#  Plain text (phone): https://raw.githubusercontent.com/nightscout/aaps-builder/main/.github/workflows/build.yml
+#  Step-by-step guide: https://github.com/nightscout/aaps-builder#-updating-your-copy
 #
 #  Version 2: automatic weekly builds were removed at the request of the AAPS developers.
 #  You always start a build yourself: Actions -> Build AAPS -> Run workflow.
@@ -40,7 +40,7 @@ permissions:
 env:
   # Version of this file. Bump it (and the VERSION file) when publishing a new aaps-builder release.
   BUILDER_VERSION: 2
-  BUILDER_REPO: dio99/aaps-builder
+  BUILDER_REPO: nightscout/aaps-builder
   IN_VERSION: ${{ inputs.version || 'latest' }}
   IN_VARIANT: ${{ inputs.variant || 'fullRelease' }}
 

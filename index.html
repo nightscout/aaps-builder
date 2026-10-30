@@ -249,7 +249,7 @@
   const TEMPLATE = (() => {
     const m = location.hostname.match(/^([^.]+)\.github\.io$/);
     const repo = location.pathname.split('/').filter(Boolean)[0];
-    return m && repo ? { owner: m[1], name: repo } : { owner: 'dio99', name: 'aaps-builder' };
+    return m && repo ? { owner: m[1], name: repo } : { owner: 'nightscout', name: 'aaps-builder' };
   })();
   const REPO_NAME = 'my-aaps';
 

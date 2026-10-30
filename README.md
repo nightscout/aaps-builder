@@ -9,7 +9,7 @@ Build your own [AAPS](https://github.com/nightscout/AndroidAPS) app in GitHub. N
 
 Start with the setup page. It walks you through everything:
 
-**[https://dio99.github.io/aaps-builder/](https://dio99.github.io/aaps-builder/)**
+**[https://nightscout.github.io/aaps-builder/](https://nightscout.github.io/aaps-builder/)**
 
 ## 🔧 Already have your own copy?
 
@@ -41,10 +41,10 @@ update of AAPS Builder is ever required, you get an issue (and an e-mail) in you
 Do this when you get an **"AAPS Builder update available"** issue. Your copy does not change by itself, so you copy
 one file. It takes 2 minutes. Use a **web browser**, on a computer if you can: the GitHub app cannot do this.
 
-1. Open the new file: **https://github.com/dio99/aaps-builder/blob/main/.github/workflows/build.yml**
+1. Open the new file: **https://github.com/nightscout/aaps-builder/blob/main/.github/workflows/build.yml**
 2. Click the **copy icon** ⧉ ("Copy raw file") at the top right of the file.
    *On a phone:* open the plain-text version instead:
-   **https://raw.githubusercontent.com/dio99/aaps-builder/main/.github/workflows/build.yml**,
+   **https://raw.githubusercontent.com/nightscout/aaps-builder/main/.github/workflows/build.yml**,
    press and hold the text → **Select all** → **Copy**.
 3. Open **your own** repository → **Code** → folder `.github` → `workflows` → `build.yml`.
 4. Click the **pencil** ✏️ (Edit this file) at the top right.
