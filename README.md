@@ -40,12 +40,15 @@ repository never builds anything by itself.
 e-mail when it succeeds: open [github.com/settings/notifications](https://github.com/settings/notifications) →
 **System → Actions** → untick **"Only notify for failed workflows"**.
 
-## 🔄 Updating your copy
+## 🔄 Updates
 
-Your repository never changes by itself. New versions of the build workflow are announced in the AAPS documentation,
-on the page [Docs updates & changes](https://androidaps.readthedocs.io/en/latest/Maintenance/DocumentationUpdate.html).
-To update, you replace one file. It takes 2 minutes, and your `KEYSTORE_SET` secret stays as it is. This also works for
-a repository made with the earlier setup page or from the old template.
+The build steps are updated for you: at every build, your repository runs the released version of
+`.github/workflows/aaps-builder.yml` from this repository (branch `release`). Nothing in your repository changes.
+
+You only replace your own `.github/workflows/build.yml` when the AAPS documentation announces it on the page
+[Docs updates & changes](https://androidaps.readthedocs.io/en/latest/Maintenance/DocumentationUpdate.html), for
+example for a new build variant, or once if your repository was made with the earlier setup page or from the old
+template. It takes 2 minutes, and your `KEYSTORE_SET` secret stays as it is:
 
 1. Open the newest file: **https://github.com/nightscout/aaps-builder/blob/main/.github/workflows/build.yml**
 2. Click the **copy icon** ⧉ ("Copy raw file") at the top right of the file.
@@ -87,7 +90,8 @@ about 15–30 minutes.
 
 | File | What it is |
 |---|---|
-| `.github/workflows/build.yml` | The build workflow. Everything your repository does is in this file; nothing is run from anywhere else. The first line shows its version |
+| `.github/workflows/build.yml` | Your build workflow: the **Run workflow** form, and one line that runs the build steps below from the `release` branch of nightscout/aaps-builder. The first line shows its version |
+| `.github/workflows/aaps-builder.yml` | The build steps (a reusable workflow, no **Run workflow** button). Your build uses the released version from nightscout/aaps-builder, not the copy in your repository |
 | `VERSION` | Only for repositories made from the old template (before version 3): their workflow compares it with its own version and opens an "update available" issue |
 | `README.md`, `LICENSE` | This page and the licence |
 
@@ -99,9 +103,13 @@ about 15–30 minutes.
   [openaps/AndroidAPSdocs](https://github.com/openaps/AndroidAPSdocs): `docs/EN/SettingUpAaps/BrowserBuildAapsBuilderSetup.md`
   (label `aaps-builder-setup`) and `docs/EN/SettingUpAaps/BrowserBuildAapsBuilder.md` (label `aaps-builder`). They
   describe the steps of the setup page and what the workflow does, so they change together with `build.yml`.
-- To change the workflow: edit `.github/workflows/build.yml`, raise the version in its first line
-  (`# AAPS Builder build workflow, version N`), test a build in a private copy, then add an entry to
-  `docs/EN/Maintenance/DocumentationUpdate.md` telling users to replace their file.
+- Users' repositories call `.github/workflows/aaps-builder.yml@release`. To change the build steps: edit the file on
+  `main`, raise the version in its first line, test a build in a private copy whose `build.yml` points at your
+  branch, then move the `release` branch to the tested commit (`git push origin main:release`). Every user gets it
+  at their next build; announce it in `docs/EN/Maintenance/DocumentationUpdate.md`.
+- `.github/workflows/build.yml` (the stub copied into every user's repository) changes only when the
+  **Run workflow** form changes, for example a new variant. Raise the version in its first line and tell users to
+  replace their file, in the same docs entry.
 - Builds are started by the user only (`workflow_dispatch`). No `schedule`, no variables that change what is built:
   automatic builds are not acceptable for a medical app.
 
@@ -111,8 +119,8 @@ Based on **AAPS Builder** by the AAPS Builder authors, https://github.com/dio99/
 **GNU Affero General Public License v3.0 (AGPL-3.0)**, see [LICENSE](LICENSE). Imported into the AAPS
 documentation after a review, maintained there up to build workflow version 7, and moved here.
 Changes since the upstream version (AGPL-3.0 section 5, notices kept in the files): no automatic or scheduled builds
-and read-only workflow permissions; no update check against another repository (new versions are announced in the
-AAPS documentation); the `aapsclient3Release` variant (AAPSClient3, AAPS 4.0 and later) and rejection of unknown
+and read-only workflow permissions; the build steps are a reusable workflow run from the `release` branch of this
+repository, so users' copies need no update check; the `aapsclient3Release` variant (AAPSClient3, AAPS 4.0 and later) and rejection of unknown
 variants; GitHub's actions and runner image pinned to exact versions; clearer messages for a wrong `KEYSTORE_SET`;
 setup page moved to the AAPS documentation, in English and translated, with the Google Drive step on the page itself
 and new keys using the alias `key0`.
